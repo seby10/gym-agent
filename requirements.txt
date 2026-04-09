@@ -1,0 +1,9 @@
+streamlit
+mlxtend
+scikit-fuzzy
+scipy
+networkx
+deap
+pandas
+numpy
+plotly
