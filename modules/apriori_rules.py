@@ -22,7 +22,7 @@ def _discretizar_fila(row: pd.Series) -> list[str]:
     items.append(f"objetivo_{row['objetivo']}")
 
     # Fatiga post (discretizada)
-    f = row['fatiga_post']
+    f = row["fatiga_post"]
     if f <= 3:
         items.append("fatiga_post_baja")
     elif f <= 6:
@@ -34,7 +34,7 @@ def _discretizar_fila(row: pd.Series) -> list[str]:
     items.append(f"rendimiento_{row['rendimiento']}")
 
     # Días consecutivos
-    d = row['dias_consecutivos']
+    d = row["dias_consecutivos"]
     if d >= 4:
         items.append("dias_consecutivos_4mas")
     elif d >= 2:
@@ -45,8 +45,9 @@ def _discretizar_fila(row: pd.Series) -> list[str]:
     return items
 
 
-def extraer_reglas(df: pd.DataFrame, min_support: float = 0.1,
-                   min_confidence: float = 0.7) -> pd.DataFrame:
+def extraer_reglas(
+    df: pd.DataFrame, min_support: float = 0.1, min_confidence: float = 0.7
+) -> pd.DataFrame:
     """
     Convierte el historial en transacciones y extrae reglas de asociación.
     Retorna DataFrame con columnas: antecedents, consequents, confidence, lift.
@@ -57,17 +58,22 @@ def extraer_reglas(df: pd.DataFrame, min_support: float = 0.1,
     te_array = te.fit_transform(transacciones)
     df_encoded = pd.DataFrame(te_array, columns=te.columns_)
 
-    itemsets_frecuentes = apriori(df_encoded, min_support=min_support,
-                                  use_colnames=True)
+    itemsets_frecuentes = apriori(
+        df_encoded, min_support=min_support, use_colnames=True
+    )
 
     if itemsets_frecuentes.empty:
-        return pd.DataFrame(columns=['antecedents', 'consequents',
-                                     'confidence', 'lift'])
+        return pd.DataFrame(
+            columns=["antecedents", "consequents", "confidence", "lift"]
+        )
 
-    reglas = association_rules(itemsets_frecuentes, metric="confidence",
-                               min_threshold=min_confidence)
+    reglas = association_rules(
+        itemsets_frecuentes, metric="confidence", min_threshold=min_confidence
+    )
 
-    return reglas[['antecedents', 'consequents', 'confidence', 'lift']].reset_index(drop=True)
+    return reglas[["antecedents", "consequents", "confidence", "lift"]].reset_index(
+        drop=True
+    )
 
 
 def reglas_aplicables(reglas: pd.DataFrame, contexto: dict) -> list[dict]:
@@ -107,17 +113,19 @@ def reglas_aplicables(reglas: pd.DataFrame, contexto: dict) -> list[dict]:
 
     resultado = []
     for _, row in reglas.iterrows():
-        antecedente = set(row['antecedents'])
+        antecedente = set(row["antecedents"])
         # La regla aplica si su antecedente es subconjunto del contexto
         if antecedente.issubset(items_contexto):
-            consecuente = ", ".join(sorted(row['consequents']))
+            consecuente = ", ".join(sorted(row["consequents"]))
             antecedente_texto = " + ".join(sorted(antecedente))
-            resultado.append({
-                "regla_texto": f"{antecedente_texto} → {consecuente}",
-                "consecuente": consecuente,
-                "confidence": round(float(row['confidence']), 3)
-            })
+            resultado.append(
+                {
+                    "regla_texto": f"{antecedente_texto} → {consecuente}",
+                    "consecuente": consecuente,
+                    "confidence": round(float(row["confidence"]), 3),
+                }
+            )
 
     # Ordenar por confianza descendente
-    resultado.sort(key=lambda x: x['confidence'], reverse=True)
+    resultado.sort(key=lambda x: x["confidence"], reverse=True)
     return resultado

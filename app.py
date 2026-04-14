@@ -19,7 +19,9 @@ def _color_intensidad(nivel: str) -> str:
     )
 
 
-def _grados_triangulares(valor: float, definiciones: dict[str, list[float]]) -> dict[str, float]:
+def _grados_triangulares(
+    valor: float, definiciones: dict[str, list[float]]
+) -> dict[str, float]:
     """Calcula grados de pertenencia para funciones triangulares."""
     grados = {}
     max_val = max(p[2] for p in definiciones.values())
@@ -31,8 +33,12 @@ def _grados_triangulares(valor: float, definiciones: dict[str, list[float]]) -> 
     return grados
 
 
-def _plot_membresias(titulo: str, valor: float, universo: np.ndarray,
-                     definiciones: dict[str, list[float]]) -> go.Figure:
+def _plot_membresias(
+    titulo: str,
+    valor: float,
+    universo: np.ndarray,
+    definiciones: dict[str, list[float]],
+) -> go.Figure:
     """Grafica funciones de membresía y marca el valor actual del usuario."""
     fig = go.Figure()
 
@@ -121,7 +127,6 @@ def _resumen_resultado(perfil: dict, resultado: dict) -> dict:
 # ── Configuración de página ───────────────────────────────────────────────────
 st.set_page_config(
     page_title="Agente de Entrenamiento",
-    page_icon="🏋️",
     layout="wide",
 )
 
@@ -135,7 +140,7 @@ def cargar_agente():
 agente = cargar_agente()
 
 # ── Título ────────────────────────────────────────────────────────────────────
-st.title("🏋️ Agente Inteligente de Entrenamiento Personalizado")
+st.title("Agente Inteligente de Entrenamiento Personalizado")
 st.caption(
     "Razonamiento visible paso a paso: Apriori → Lógica Difusa → Algoritmo Genético"
 )
@@ -166,29 +171,37 @@ with col_inputs:
     nivel = st.selectbox(
         "Nivel físico",
         ["principiante", "intermedio", "avanzado"],
-        index=["principiante", "intermedio", "avanzado"].index(
-            nivel_default
-        ),
+        index=["principiante", "intermedio", "avanzado"].index(nivel_default),
     )
 
     objetivo = st.selectbox(
         "Objetivo",
         ["volumen", "definicion", "resistencia"],
-        index=["volumen", "definicion", "resistencia"].index(
-            objetivo_default
-        ),
+        index=["volumen", "definicion", "resistencia"].index(objetivo_default),
     )
 
     fatiga = st.slider(
-        "Fatiga actual", min_value=0.0, max_value=10.0, value=float(fatiga_default), step=0.5
+        "Fatiga actual",
+        min_value=0.0,
+        max_value=10.0,
+        value=float(fatiga_default),
+        step=0.5,
     )
 
     energia = st.slider(
-        "Energía actual", min_value=0.0, max_value=10.0, value=float(energia_default), step=0.5
+        "Energía actual",
+        min_value=0.0,
+        max_value=10.0,
+        value=float(energia_default),
+        step=0.5,
     )
 
     dias_descanso = st.slider(
-        "Días de descanso", min_value=0, max_value=7, value=int(descanso_default), step=1
+        "Días de descanso",
+        min_value=0,
+        max_value=7,
+        value=int(descanso_default),
+        step=1,
     )
 
     grupo_planificado = st.selectbox(
@@ -223,7 +236,7 @@ with col_resultados:
             f"Demo activa: {caso_demo if caso_demo != 'Personalizado' else 'perfil manual'}"
         )
 
-        with st.expander("📊 Comparar los 3 casos del README", expanded=False):
+        with st.expander("Comparar los 3 casos del README", expanded=False):
             st.write(
                 "Esta comparación usa los tres perfiles documentados en el README para mostrar cómo cambia la salida del agente según el estado del usuario."
             )
@@ -234,7 +247,9 @@ with col_resultados:
                 for etiqueta_caso, perfil_base in CASOS_DEMO.items():
                     resultado_caso = agente.razonar(perfil_base)
                     resultados_demo.append((etiqueta_caso, perfil_base, resultado_caso))
-                    comparaciones.append(_resumen_resultado(perfil_base, resultado_caso))
+                    comparaciones.append(
+                        _resumen_resultado(perfil_base, resultado_caso)
+                    )
 
             df_comparacion = pd.DataFrame(comparaciones)
             st.dataframe(df_comparacion, width="stretch", hide_index=True)
@@ -272,11 +287,17 @@ with col_resultados:
                 with columna:
                     estado_caso = resultado_caso["paso2_estado"]
                     st.markdown(f"**{etiqueta_caso}**")
-                    st.metric("Intensidad recomendada", f"{estado_caso['intensidad_recomendada']:.1f}")
-                    st.metric("Fitness final", f"{resultado_caso['paso3_rutina']['fitness_final']:.4f}")
+                    st.metric(
+                        "Intensidad recomendada",
+                        f"{estado_caso['intensidad_recomendada']:.1f}",
+                    )
+                    st.metric(
+                        "Fitness final",
+                        f"{resultado_caso['paso3_rutina']['fitness_final']:.4f}",
+                    )
                     st.caption(estado_caso["razonamiento"])
 
-        st.markdown("### 📘 Qué hace el agente, paso a paso")
+        st.markdown("### Qué hace el agente, paso a paso")
         tab_guion, tab_tecnico = st.tabs(["Guion para exponer", "Detalle técnico IA"])
 
         with tab_guion:
@@ -338,9 +359,17 @@ with col_resultados:
             reglas = resultado["paso1_reglas"]
             contexto = {
                 "grupo_muscular": grupo_planificado,
-                "intensidad": "alta" if energia - fatiga >= 4 else "media" if energia - fatiga >= 0 else "baja",
+                "intensidad": "alta"
+                if energia - fatiga >= 4
+                else "media"
+                if energia - fatiga >= 0
+                else "baja",
                 "objetivo": objetivo,
-                "dias_consecutivos": 5 if dias_descanso == 0 else 3 if dias_descanso == 1 else 1,
+                "dias_consecutivos": 5
+                if dias_descanso == 0
+                else 3
+                if dias_descanso == 1
+                else 1,
             }
 
             st.caption(
@@ -352,7 +381,10 @@ with col_resultados:
             if reglas:
                 df_reglas = pd.DataFrame(reglas)[["regla_texto", "confidence"]]
                 df_reglas = df_reglas.rename(
-                    columns={"regla_texto": "Regla detectada", "confidence": "Confianza"}
+                    columns={
+                        "regla_texto": "Regla detectada",
+                        "confidence": "Confianza",
+                    }
                 )
 
                 fig_conf = go.Figure(
@@ -374,7 +406,9 @@ with col_resultados:
                 st.plotly_chart(fig_conf, width="stretch")
 
                 df_reglas_show = df_reglas.copy()
-                df_reglas_show["Confianza"] = df_reglas_show["Confianza"].map("{:.1%}".format)
+                df_reglas_show["Confianza"] = df_reglas_show["Confianza"].map(
+                    "{:.1%}".format
+                )
                 st.dataframe(df_reglas_show, width="stretch", hide_index=True)
             else:
                 st.write("No se encontraron reglas aplicables al contexto actual.")
@@ -444,25 +478,36 @@ with col_resultados:
                 "muy_alta": [8, 10, 10],
             }
 
-            tab_fuzzy_1, tab_fuzzy_2 = st.tabs([
-                "Funciones de membresía",
-                "Grados activados",
-            ])
+            tab_fuzzy_1, tab_fuzzy_2 = st.tabs(
+                [
+                    "Funciones de membresía",
+                    "Grados activados",
+                ]
+            )
 
             with tab_fuzzy_1:
                 c1, c2 = st.columns(2)
                 with c1:
                     st.plotly_chart(
-                        _plot_membresias("Fatiga", fatiga, np.arange(0, 10.5, 0.5), defs_fatiga),
+                        _plot_membresias(
+                            "Fatiga", fatiga, np.arange(0, 10.5, 0.5), defs_fatiga
+                        ),
                         width="stretch",
                     )
                     st.plotly_chart(
-                        _plot_membresias("Descanso", dias_descanso, np.arange(0, 7.5, 0.5), defs_descanso),
+                        _plot_membresias(
+                            "Descanso",
+                            dias_descanso,
+                            np.arange(0, 7.5, 0.5),
+                            defs_descanso,
+                        ),
                         width="stretch",
                     )
                 with c2:
                     st.plotly_chart(
-                        _plot_membresias("Energía", energia, np.arange(0, 10.5, 0.5), defs_energia),
+                        _plot_membresias(
+                            "Energía", energia, np.arange(0, 10.5, 0.5), defs_energia
+                        ),
                         width="stretch",
                     )
                     st.plotly_chart(
@@ -593,7 +638,7 @@ with col_resultados:
                 st.plotly_chart(fig_dist, width="stretch")
 
         # ── Rutina final ──────────────────────────────────────────────────────
-        st.subheader("📋 Rutina Semanal Generada")
+        st.subheader("Rutina Semanal Generada")
         rutina = resultado["paso3_rutina"]["rutina"]
 
         df_rutina = pd.DataFrame(rutina)
