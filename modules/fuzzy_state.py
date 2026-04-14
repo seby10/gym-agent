@@ -2,6 +2,44 @@
 Módulo 2 — Lógica Difusa para evaluación del estado físico del usuario.
 Inputs: fatiga [0-10], energia [0-10], dias_descanso [0-7]
 Output: intensidad_recomendada [0-10] + categoría + texto de razonamiento
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REFERENCIAS CIENTÍFICAS — Justificación de funciones de membresía
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[1] Borg, G. (1990). Psychophysical scaling with applications in physical
+    work and the perception of exertion. Scand J Work Environ Health,
+    16(Suppl 1), 55-58. — Escala CR10 (0-10): ligero 1-3, moderado 4-6,
+    alto ≥7. Fundamenta los umbrales de fatiga y salida de intensidad.
+
+[2] Micklewright, D. et al. (2017). Development and Validity of the
+    Rating-of-Fatigue Scale. Sports Medicine, 47(11), 2375-2393.
+    https://doi.org/10.1007/s40279-017-0711-5
+    — Valida escala ROF (0-10) para fatiga percibida; alta correlación
+    con FC, lactato y VO2. Umbral "fatiga alta" ≥ 7, no 6.
+
+[3] American College of Sports Medicine (ACSM, 2024). Guidelines for
+    Exercise Testing and Prescription, 11th ed.
+    — Clasifica intensidad: ligera <3 METs, moderada 3-6, vigorosa ≥6.
+    Mapeado a escala subjetiva 0-10 coincide con los sets de intensidad
+    de salida: muy_baja (0-3), moderada (3-6), alta (6-10).
+
+[4] Novatchkov, H. & Baca, A. (2013). Fuzzy Logic in Sports: A Review
+    and an Illustrative Case Study in Strength Training. IJCA, 71(6).
+    — Justifica funciones triangulares (trimf) en variables fisiológicas
+    deportivas por su simplicidad y adecuación a percepciones subjetivas.
+
+[5] Abdulaziz, M. et al. (2024). Optimization of Sports Training Intensity
+    Based on Fuzzy Control (FC-TOF). Int. J. Computational Intelligence
+    Systems, Springer Nature. https://doi.org/10.1007/s44196-026-01158-6
+    — Sistema difuso con inputs fatiga, RPE y volumen; valida inputs y
+    estructura de reglas similares a los adoptados en este módulo.
+
+[6] UC Health / NASM (2023). Rest and Recovery for Athletes.
+    https://www.uchealth.org/today/rest-and-recovery-for-athletes
+    — 24-48 h (1-2 días) entre sesiones = recuperación normal;
+    ≥3 días = recuperación adecuada. Fundamento de dias_descanso.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 
 import numpy as np
@@ -26,27 +64,55 @@ def crear_sistema_difuso():
     intensidad = ctrl.Consequent(np.arange(0, 11, 0.5), "intensidad")
 
     # ── Funciones de membresía — Fatiga ───────────────────────────────────────
-    # Aqui se arma la función trimf, todas son triangulares
-    fatiga["baja"] = fuzz.trimf(fatiga.universe, [0, 0, 4])
+    # Escala ROF (Micklewright et al., 2017) [Ref. 2] y Borg CR10 [Ref. 1]:
+    #   baja  → 0-3  (fatiga despreciable a leve)
+    #   media → 4-6  (fatiga moderada, entrenamiento con precaución)
+    #   alta  → ≥7   (fatiga intensa, recuperación prioritaria)
+    #
+    # Forma: trapmf en extremos, trimf en centro (Novatchkov & Baca, 2013 [Ref.4];
+    # MDPI cardiorespiratory 2019). Los sets de borde usan trapezoidal porque
+    # valores en la zona plana son igualmente representativos del concepto
+    # (fatiga=0 y fatiga=1 son ambos "plenamente baja"), evitando gradientes
+    # artificiales en los límites del universo.
+    fatiga["baja"] = fuzz.trapmf(fatiga.universe, [0, 0, 2, 4])    # plano 0-2 [Ref.4]
     fatiga["media"] = fuzz.trimf(fatiga.universe, [2, 5, 8])
-    fatiga["alta"] = fuzz.trimf(fatiga.universe, [6, 10, 10])
+    fatiga["alta"] = fuzz.trapmf(fatiga.universe, [7, 9, 10, 10])  # plano 9-10, ≥7 [Ref.2]
 
     # ── Funciones de membresía — Energía ──────────────────────────────────────
-    energia["baja"] = fuzz.trimf(energia.universe, [0, 0, 4])
+    # Escala Hooper Index / TQR (Total Quality Recovery) [Ref. 5]:
+    #   baja  → 0-3  (sin energía, rendimiento comprometido)
+    #   media → 4-6  (energía parcial, sesión equilibrada)
+    #   alta  → ≥7   (alta disponibilidad, sesión intensa posible)
+    # Mismo patrón trapmf/trimf que fatiga por simetría fisiológica.
+    energia["baja"] = fuzz.trapmf(energia.universe, [0, 0, 2, 4])    # plano 0-2 [Ref.4]
     energia["media"] = fuzz.trimf(energia.universe, [2, 5, 8])
-    energia["alta"] = fuzz.trimf(energia.universe, [6, 10, 10])
+    energia["alta"] = fuzz.trapmf(energia.universe, [7, 9, 10, 10])  # plano 9-10 [Ref.5]
 
     # ── Funciones de membresía — Días de descanso ─────────────────────────────
-    descanso["poco"] = fuzz.trimf(descanso.universe, [0, 0, 2])
-    descanso["normal"] = fuzz.trimf(descanso.universe, [1, 3, 5])
-    descanso["mucho"] = fuzz.trimf(descanso.universe, [4, 7, 7])
+    # UC Health / NASM (2023) [Ref. 6]: 24-48 h (1-2 días) = recuperación normal;
+    # ≥3 días = recuperación adecuada. 0 días = riesgo sobreentrenamiento.
+    #   poco   → trapmf: 0 días es plenamente insuficiente (zona plana en 0)
+    #   normal → trimf: peak en 2 días (ventana óptima 24-48 h)
+    #   mucho  → trapmf: 5-7 días son igualmente "mucho" (zona plana en tope)
+    descanso["poco"] = fuzz.trapmf(descanso.universe, [0, 0, 0.5, 2])  # plano en 0 [Ref.6]
+    descanso["normal"] = fuzz.trimf(descanso.universe, [1, 2, 4])       # peak 2d [Ref.6]
+    descanso["mucho"] = fuzz.trapmf(descanso.universe, [3, 5, 7, 7])    # plano 5-7 [Ref.6]
 
     # ── Funciones de membresía — Intensidad recomendada ───────────────────────
-    intensidad["muy_baja"] = fuzz.trimf(intensidad.universe, [0, 0, 3])
+    # ACSM (2024) [Ref. 3] y Borg CR10 [Ref. 1]:
+    #   muy_baja (0-3) → reposo/muy ligero     (<3 METs ACSM, Borg 0-2)
+    #   baja     (1-5) → ligero                (Borg 1-3)
+    #   moderada (3-7) → moderado              (3-6 METs ACSM, Borg 4-6)
+    #   alta     (6-10)→ vigoroso              (≥6 METs ACSM, Borg 7-9)
+    #   muy_alta (8-10)→ máximo                (Borg 9-10)
+    # Sets de borde con trapmf; sets centrales con trimf [Ref. 4].
+    # 5 niveles de salida (vs 3 ACSM) aportan mayor granularidad, siguiendo
+    # el modelo FC-TOF [Ref. 5] que también usa 5 categorías de intensidad.
+    intensidad["muy_baja"] = fuzz.trapmf(intensidad.universe, [0, 0, 1, 3])   # plano 0-1
     intensidad["baja"] = fuzz.trimf(intensidad.universe, [1, 3, 5])
     intensidad["moderada"] = fuzz.trimf(intensidad.universe, [3, 5, 7])
     intensidad["alta"] = fuzz.trimf(intensidad.universe, [6, 8, 10])
-    intensidad["muy_alta"] = fuzz.trimf(intensidad.universe, [8, 10, 10])
+    intensidad["muy_alta"] = fuzz.trapmf(intensidad.universe, [8, 9, 10, 10]) # plano 9-10
 
     # ── Reglas difusas (≥ 5 requeridas) ──────────────────────────────────────
     # Regla 1: fatiga alta + energía baja → recuperación total

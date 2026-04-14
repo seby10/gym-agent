@@ -19,18 +19,38 @@ def _color_intensidad(nivel: str) -> str:
     )
 
 
+def _membf(universo: np.ndarray, params: list[float]) -> np.ndarray:
+    """Aplica trimf (3 params) o trapmf (4 params) según longitud de params."""
+    if len(params) == 4:
+        return fuzz.trapmf(universo, params)
+    return fuzz.trimf(universo, params)
+
+
 def _grados_triangulares(
     valor: float, definiciones: dict[str, list[float]]
 ) -> dict[str, float]:
-    """Calcula grados de pertenencia para funciones triangulares."""
+    """Calcula grados de pertenencia (soporta trimf y trapmf)."""
     grados = {}
-    max_val = max(p[2] for p in definiciones.values())
+    max_val = max(p[-1] for p in definiciones.values())
     universo = np.arange(0, max_val + 0.5, 0.5)
     for etiqueta, params in definiciones.items():
         grados[etiqueta] = float(
-            fuzz.interp_membership(universo, fuzz.trimf(universo, params), valor)
+            fuzz.interp_membership(universo, _membf(universo, params), valor)
         )
     return grados
+
+
+_PALETTE = [
+    (79, 142, 247),   # azul
+    (239, 71, 111),   # rojo
+    (6, 214, 160),    # verde
+    (255, 217, 61),   # amarillo
+    (167, 139, 250),  # violeta
+]
+
+
+def _rgba(rgb: tuple, alpha: float) -> str:
+    return f"rgba({rgb[0]},{rgb[1]},{rgb[2]},{alpha})"
 
 
 def _plot_membresias(
@@ -39,35 +59,71 @@ def _plot_membresias(
     universo: np.ndarray,
     definiciones: dict[str, list[float]],
 ) -> go.Figure:
-    """Grafica funciones de membresía y marca el valor actual del usuario."""
+    """
+    Grafica funciones de membresía con area rellena.
+    El set con mayor grado de activacion se resalta (opacidad alta).
+    Un punto en la interseccion muestra el grado exacto de cada set activado.
+    """
     fig = go.Figure()
 
+    # Calcular grados de activacion para resaltar el dominante
+    grados = {}
     for etiqueta, params in definiciones.items():
-        y = fuzz.trimf(universo, params)
+        y = _membf(universo, params)
+        grados[etiqueta] = float(fuzz.interp_membership(universo, y, valor))
+
+    dominante = max(grados, key=grados.get)
+
+    for i, (etiqueta, params) in enumerate(definiciones.items()):
+        rgb = _PALETTE[i % len(_PALETTE)]
+        y = _membf(universo, params)
+        grado = grados[etiqueta]
+        es_dominante = etiqueta == dominante and grado > 0.01
+
+        fill_alpha = 0.45 if es_dominante else 0.10
+        line_width = 2.5 if es_dominante else 1.5
+
+        label = f"{etiqueta}  ({grado:.2f})" if grado > 0.01 else etiqueta
+
         fig.add_trace(
             go.Scatter(
                 x=universo,
                 y=y,
                 mode="lines",
-                name=etiqueta,
-                line=dict(width=2),
+                name=label,
+                fill="tozeroy",
+                fillcolor=_rgba(rgb, fill_alpha),
+                line=dict(color=_rgba(rgb, 0.9), width=line_width),
             )
         )
+
+        # Punto en la interseccion solo si el set esta activado
+        if grado > 0.01:
+            fig.add_trace(
+                go.Scatter(
+                    x=[valor],
+                    y=[grado],
+                    mode="markers",
+                    marker=dict(color=_rgba(rgb, 1.0), size=9, line=dict(color="white", width=1.5)),
+                    showlegend=False,
+                    hovertemplate=f"{etiqueta}: {grado:.3f}<extra></extra>",
+                )
+            )
 
     fig.add_vline(
         x=valor,
         line_width=2,
         line_dash="dash",
-        line_color="#222",
-        annotation_text=f"valor={valor:.1f}",
-        annotation_position="top",
+        line_color="#333",
+        annotation_text=f"{valor:.1f}",
+        annotation_position="top right",
     )
 
     fig.update_layout(
         title=titulo,
         xaxis_title="Valor",
         yaxis_title="Grado de pertenencia",
-        yaxis=dict(range=[0, 1.05]),
+        yaxis=dict(range=[0, 1.15]),
         height=280,
         margin=dict(t=45, b=35),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
@@ -455,27 +511,30 @@ with col_resultados:
             fig_gauge.update_layout(height=250, margin=dict(t=40, b=0))
             st.plotly_chart(fig_gauge, width="stretch")
 
+            # Parámetros sincronizados con modules/fuzzy_state.py
+            # Sets de extremo → trapmf (4 puntos); sets de centro → trimf (3 puntos)
+            # Novatchkov & Baca (2013); MDPI cardiorespiratory (2019)
             defs_fatiga = {
-                "baja": [0, 0, 4],
-                "media": [2, 5, 8],
-                "alta": [6, 10, 10],
+                "baja":  [0, 0, 2, 4],    # trapmf — plano 0-2 (ROF baja)
+                "media": [2, 5, 8],        # trimf   — peak en 5
+                "alta":  [7, 9, 10, 10],   # trapmf — plano 9-10, umbral ≥7 (ROF)
             }
             defs_energia = {
-                "baja": [0, 0, 4],
-                "media": [2, 5, 8],
-                "alta": [6, 10, 10],
+                "baja":  [0, 0, 2, 4],    # trapmf — plano 0-2
+                "media": [2, 5, 8],        # trimf   — peak en 5
+                "alta":  [7, 9, 10, 10],   # trapmf — plano 9-10 (TQR/Hooper)
             }
             defs_descanso = {
-                "poco": [0, 0, 2],
-                "normal": [1, 3, 5],
-                "mucho": [4, 7, 7],
+                "poco":   [0, 0, 0.5, 2],  # trapmf — plano en 0 (sin descanso)
+                "normal": [1, 2, 4],        # trimf   — peak 2d (24-48h óptimo)
+                "mucho":  [3, 5, 7, 7],    # trapmf — plano 5-7 (≥3d adecuado)
             }
             defs_intensidad = {
-                "muy_baja": [0, 0, 3],
-                "baja": [1, 3, 5],
-                "moderada": [3, 5, 7],
-                "alta": [6, 8, 10],
-                "muy_alta": [8, 10, 10],
+                "muy_baja": [0, 0, 1, 3],   # trapmf — plano 0-1
+                "baja":     [1, 3, 5],       # trimf
+                "moderada": [3, 5, 7],       # trimf
+                "alta":     [6, 8, 10],      # trimf
+                "muy_alta": [8, 9, 10, 10],  # trapmf — plano 9-10
             }
 
             tab_fuzzy_1, tab_fuzzy_2 = st.tabs(
