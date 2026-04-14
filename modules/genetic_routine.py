@@ -48,17 +48,22 @@ CONSECUENTES_SOBREENTRENAMIENTO = {
 # ── Configuración DEAP (guardada en registro global para evitar re-crear) ─────
 def _setup_deap():
     """Registra tipos y operadores en DEAP (idempotente)."""
+    # hasattr() — función de Python puro. Verifica si un objeto ya tiene ese atributo
     if not hasattr(creator, "FitnessMaxGym"):
+        # crea un tipo de fitness que maximiza. El weights=(1.0,) significa que queremos el valor más alto posible. Si fuera (-1.0,) estaríamos minimizando.
         creator.create("FitnessMaxGym", base.Fitness, weights=(1.0,))
     if not hasattr(creator, "IndividualGym"):
+        # crea el tipo individuo. Es básicamente una lista de Python pero con un atributo adicional llamado fitness que guarda su puntuación.
         creator.create("IndividualGym", list, fitness=creator.FitnessMaxGym)
 
+    # registro central donde se guardan todas las operaciones del AG con nombres. Es como una caja de herramientas donde metes cada operación y le pones un nombre para llamarla después.
     tb = base.Toolbox()
 
     def gen_atributo(lo, hi):
         return random.randint(lo, hi)
 
     def gen_individuo():
+        # construye la lista de 20 números repitiendo 4 valores por cada uno de los 5 días. Al final creator.IndividualGym(ind) convierte la lista normal en un individuo de DEAP con el atributo fitness incluido.
         ind = []
         for _ in range(5):  # 5 días
             ind.append(gen_atributo(*RANGO_GRUPO))
@@ -67,6 +72,10 @@ def _setup_deap():
             ind.append(gen_atributo(*RANGO_INTENSIDAD))
         return creator.IndividualGym(ind)
 
+    # tb.register() — viene de DEAP. Guarda una operación en el toolbox con un nombre. Después puedes llamarla como tb.individual(), tb.mate(), etc.
+    # tools.initRepeat — viene de DEAP. Repite una función N veces para crear la población. Llamar tb.population(n=100) creará 100 individuos.
+    # tools.cxTwoPoint — viene de DEAP. Operador de cruce de dos puntos. Corta dos cromosomas en dos puntos y mezcla los pedazos:
+    # tools.selTournament — viene de DEAP. Selección por torneo. Toma 3 individuos al azar (tournsize=3) y el ganador es el de mayor fitness. Se repite hasta tener suficientes seleccionados.
     tb.register("individual", gen_individuo)
     tb.register("population", tools.initRepeat, list, tb.individual)
     tb.register("mate", tools.cxTwoPoint)
@@ -79,6 +88,7 @@ def _decodificar(individuo: list) -> list[dict]:
     """Convierte la lista plana de 20 enteros en la lista de 5 genes (dicts)."""
     genes = []
     for i, dia in enumerate(DIAS):
+        # calcula dónde empieza cada día en la lista de 20 números. Para lunes i=0 entonces base_idx=0. Para martes i=1 entonces base_idx=4. Para miércoles base_idx=8, etc.
         base_idx = i * 4
         grupo_idx = int(np.clip(individuo[base_idx], *RANGO_GRUPO))
         ejercicios = int(np.clip(individuo[base_idx + 1], *RANGO_EJERCICIOS))
@@ -125,6 +135,7 @@ def calcular_fitness(
 
     for i, gen in enumerate(genes):
         # Alineación con objetivo ──────────────────────────────────────────────
+        # Por cada día revisa si series, ejercicios e intensidad están dentro del rango ideal del objetivo. Cada criterio que cumple suma 1.0, luego se divide entre 3 para tener un score de 0 a 1 por día. Python puro completamente.
         s_lo, s_hi = perfil["series_ideal"]
         e_lo, e_hi = perfil["ejercicios_ideal"]
         i_lo, i_hi = perfil["intensidad_ideal"]
@@ -217,6 +228,7 @@ def evolucionar_rutina(
     poblacion = tb.population(n=100)
 
     historial_fitness = []
+    # Guarda el mejor individuo encontrado en toda la evolución, sin importar en qué generación apareció. El 1 significa que guarda solo el mejor.
     hof = tools.HallOfFame(1)  # guarda el mejor individuo visto
 
     stats = tools.Statistics(lambda ind: ind.fitness.values[0])

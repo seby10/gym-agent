@@ -15,14 +15,18 @@ def crear_sistema_difuso():
     Retorna el sistema de control listo para simular (ControlSystemSimulation).
     """
     # ── Variables de entrada ──────────────────────────────────────────────────
+    # Se define universos de las variables [0, 0.5, 1, ..., 10] para fatiga y energía, y [0, 0.5, ..., 7] para descanso
+    # ctrl.Antecedent() — viene de skfuzzy control. Crea una variable de entrada del sistema difuso. Recibe el universo y un nombre interno. Fatiga, energía y descanso son entradas porque son los datos que el usuario ingresa.
     fatiga = ctrl.Antecedent(np.arange(0, 11, 0.5), "fatiga")
     energia = ctrl.Antecedent(np.arange(0, 11, 0.5), "energia")
     descanso = ctrl.Antecedent(np.arange(0, 8, 0.5), "dias_descanso")
 
     # ── Variable de salida ────────────────────────────────────────────────────
+    # ctrl.Consequent() — viene de skfuzzy control. Crea una variable de salida. La intensidad es salida porque es lo que el sistema calcula.
     intensidad = ctrl.Consequent(np.arange(0, 11, 0.5), "intensidad")
 
     # ── Funciones de membresía — Fatiga ───────────────────────────────────────
+    # Aqui se arma la función trimf, todas son triangulares
     fatiga["baja"] = fuzz.trimf(fatiga.universe, [0, 0, 4])
     fatiga["media"] = fuzz.trimf(fatiga.universe, [2, 5, 8])
     fatiga["alta"] = fuzz.trimf(fatiga.universe, [6, 10, 10])
@@ -69,7 +73,9 @@ def crear_sistema_difuso():
     # Regla 8: fatiga baja + energía baja → moderada (descansado pero sin energía)
     r8 = ctrl.Rule(fatiga["baja"] & energia["baja"], intensidad["moderada"])
 
+    # ctrl.ControlSystem() — viene de skfuzzy control. Agrupa todas las reglas en un sistema cohesivo.
     sistema = ctrl.ControlSystem([r1, r2, r3, r4, r5, r6, r7, r8])
+    # ctrl.ControlSystemSimulation() — viene de skfuzzy control. Envuelve el sistema y lo deja listo para recibir valores y calcular resultados. Es lo que se devuelve para usar en la siguiente función.
     return ctrl.ControlSystemSimulation(sistema)
 
 
@@ -85,18 +91,23 @@ def evaluar_estado(fatiga: float, energia: float, dias_descanso: float) -> dict:
     }
     """
     # Clamping de entradas al rango válido
+    # np.clip() — método de numpy. Fuerza un valor a quedarse dentro de un rango. Si alguien ingresa fatiga = 15, np.clip(15, 0, 10) devuelve 10. Si ingresa -3, devuelve 0. Es una protección de seguridad.
     fatiga = float(np.clip(fatiga, 0, 10))
     energia = float(np.clip(energia, 0, 10))
     dias_descanso = float(np.clip(dias_descanso, 0, 7))
 
     sim = crear_sistema_difuso()
+    # sim.input[] — es la forma de skfuzzy de alimentar valores al sistema. Usas el nombre que le diste a la variable al crearla con Antecedent.
     sim.input["fatiga"] = fatiga
     sim.input["energia"] = energia
     sim.input["dias_descanso"] = dias_descanso
 
     try:
+        # sim.compute() — método de skfuzzy. Ejecuta todo el proceso difuso internamente en tres pasos que suceden automáticamente:
         sim.compute()
-        intensidad_val = float(sim.output["intensidad"])
+        intensidad_val = float(
+            sim.output["intensidad"]
+        )  # Nuemro real despues de la defuzzificación
     except Exception:
         # Fallback si el sistema no converge (valores extremos)
         intensidad_val = _fallback_intensidad(fatiga, energia, dias_descanso)
@@ -122,6 +133,7 @@ def evaluar_estado(fatiga: float, energia: float, dias_descanso: float) -> dict:
 
 def _fallback_intensidad(fatiga: float, energia: float, descanso: float) -> float:
     """Cálculo simple cuando el sistema difuso no converge."""
+    # Es un cálculo manual simple que se usa solo cuando el sistema difuso falla. La fórmula tiene sentido intuitivo: más energía sube el score, más fatiga lo baja, más descanso lo sube. np.clip garantiza que el resultado quede entre 0 y 10.
     score = (energia - fatiga + descanso) / 2.0
     return float(np.clip(score, 0, 10))
 
