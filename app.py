@@ -9,7 +9,13 @@ import pandas as pd
 import numpy as np
 import skfuzzy as fuzz
 
-from agent.agent import GymAgent
+from agent.agent import GymAgent, _intensidad_label, _dias_consecutivos
+from modules.fuzzy_state import (
+    DEFS_FATIGA,
+    DEFS_ENERGIA,
+    DEFS_DESCANSO,
+    DEFS_INTENSIDAD,
+)
 
 
 # ── Helper ────────────────────────────────────────────────────────────────────
@@ -41,10 +47,10 @@ def _grados_triangulares(
 
 
 _PALETTE = [
-    (79, 142, 247),   # azul
-    (239, 71, 111),   # rojo
-    (6, 214, 160),    # verde
-    (255, 217, 61),   # amarillo
+    (79, 142, 247),  # azul
+    (239, 71, 111),  # rojo
+    (6, 214, 160),  # verde
+    (255, 217, 61),  # amarillo
     (167, 139, 250),  # violeta
 ]
 
@@ -104,7 +110,11 @@ def _plot_membresias(
                     x=[valor],
                     y=[grado],
                     mode="markers",
-                    marker=dict(color=_rgba(rgb, 1.0), size=9, line=dict(color="white", width=1.5)),
+                    marker=dict(
+                        color=_rgba(rgb, 1.0),
+                        size=9,
+                        line=dict(color="white", width=1.5),
+                    ),
                     showlegend=False,
                     hovertemplate=f"{etiqueta}: {grado:.3f}<extra></extra>",
                 )
@@ -268,7 +278,7 @@ with col_inputs:
         ),
     )
 
-    ejecutar = st.button("▶ Ejecutar Agente", type="primary", width="stretch")
+    ejecutar = st.button("▶ Ejecutar Agente", type="primary", use_container_width=True)
 
 # ── Panel de resultados ────────────────────────────────────────────────────────
 with col_resultados:
@@ -308,7 +318,7 @@ with col_resultados:
                     )
 
             df_comparacion = pd.DataFrame(comparaciones)
-            st.dataframe(df_comparacion, width="stretch", hide_index=True)
+            st.dataframe(df_comparacion, use_container_width=True, hide_index=True)
 
             fig_comp = go.Figure()
             fig_comp.add_trace(
@@ -334,7 +344,7 @@ with col_resultados:
                 height=320,
                 margin=dict(t=50, b=40),
             )
-            st.plotly_chart(fig_comp, width="stretch")
+            st.plotly_chart(fig_comp, use_container_width=True)
 
             c1, c2, c3 = st.columns(3)
             for columna, (etiqueta_caso, perfil_base, resultado_caso) in zip(
@@ -390,7 +400,7 @@ with col_resultados:
                     },
                 ]
             )
-            st.dataframe(df_flujo, width="stretch", hide_index=True)
+            st.dataframe(df_flujo, use_container_width=True, hide_index=True)
 
         with tab_tecnico:
             st.markdown("**Función objetivo del AG (idea general):**")
@@ -415,17 +425,9 @@ with col_resultados:
             reglas = resultado["paso1_reglas"]
             contexto = {
                 "grupo_muscular": grupo_planificado,
-                "intensidad": "alta"
-                if energia - fatiga >= 4
-                else "media"
-                if energia - fatiga >= 0
-                else "baja",
+                "intensidad": _intensidad_label(fatiga, energia),
                 "objetivo": objetivo,
-                "dias_consecutivos": 5
-                if dias_descanso == 0
-                else 3
-                if dias_descanso == 1
-                else 1,
+                "dias_consecutivos": _dias_consecutivos(dias_descanso),
             }
 
             st.caption(
@@ -459,13 +461,13 @@ with col_resultados:
                     height=260,
                     margin=dict(t=50, b=40),
                 )
-                st.plotly_chart(fig_conf, width="stretch")
+                st.plotly_chart(fig_conf, use_container_width=True)
 
                 df_reglas_show = df_reglas.copy()
                 df_reglas_show["Confianza"] = df_reglas_show["Confianza"].map(
                     "{:.1%}".format
                 )
-                st.dataframe(df_reglas_show, width="stretch", hide_index=True)
+                st.dataframe(df_reglas_show, use_container_width=True, hide_index=True)
             else:
                 st.write("No se encontraron reglas aplicables al contexto actual.")
 
@@ -509,33 +511,13 @@ with col_resultados:
                 )
             )
             fig_gauge.update_layout(height=250, margin=dict(t=40, b=0))
-            st.plotly_chart(fig_gauge, width="stretch")
+            st.plotly_chart(fig_gauge, use_container_width=True)
 
-            # Parámetros sincronizados con modules/fuzzy_state.py
-            # Sets de extremo → trapmf (4 puntos); sets de centro → trimf (3 puntos)
-            # Novatchkov & Baca (2013); MDPI cardiorespiratory (2019)
-            defs_fatiga = {
-                "baja":  [0, 0, 2, 4],    # trapmf — plano 0-2 (ROF baja)
-                "media": [2, 5, 8],        # trimf   — peak en 5
-                "alta":  [7, 9, 10, 10],   # trapmf — plano 9-10, umbral ≥7 (ROF)
-            }
-            defs_energia = {
-                "baja":  [0, 0, 2, 4],    # trapmf — plano 0-2
-                "media": [2, 5, 8],        # trimf   — peak en 5
-                "alta":  [7, 9, 10, 10],   # trapmf — plano 9-10 (TQR/Hooper)
-            }
-            defs_descanso = {
-                "poco":   [0, 0, 0.5, 2],  # trapmf — plano en 0 (sin descanso)
-                "normal": [1, 2, 4],        # trimf   — peak 2d (24-48h óptimo)
-                "mucho":  [3, 5, 7, 7],    # trapmf — plano 5-7 (≥3d adecuado)
-            }
-            defs_intensidad = {
-                "muy_baja": [0, 0, 1, 3],   # trapmf — plano 0-1
-                "baja":     [1, 3, 5],       # trimf
-                "moderada": [3, 5, 7],       # trimf
-                "alta":     [6, 8, 10],      # trimf
-                "muy_alta": [8, 9, 10, 10],  # trapmf — plano 9-10
-            }
+            # Definiciones importadas de modules/fuzzy_state.py — fuente única de verdad
+            defs_fatiga = DEFS_FATIGA
+            defs_energia = DEFS_ENERGIA
+            defs_descanso = DEFS_DESCANSO
+            defs_intensidad = DEFS_INTENSIDAD
 
             tab_fuzzy_1, tab_fuzzy_2 = st.tabs(
                 [
@@ -624,7 +606,7 @@ with col_resultados:
                     height=320,
                     margin=dict(t=45, b=30),
                 )
-                st.plotly_chart(fig_grados, width="stretch")
+                st.plotly_chart(fig_grados, use_container_width=True)
 
             st.caption(estado["razonamiento"])
 
@@ -652,7 +634,7 @@ with col_resultados:
                 height=300,
                 margin=dict(t=50, b=40),
             )
-            st.plotly_chart(fig_evol, width="stretch")
+            st.plotly_chart(fig_evol, use_container_width=True)
             st.metric("Fitness final", f"{fitness_final:.4f}")
 
             rutina_prev = resultado["paso3_rutina"]["rutina"]
@@ -677,7 +659,7 @@ with col_resultados:
                     height=280,
                     margin=dict(t=45, b=20),
                 )
-                st.plotly_chart(fig_int, width="stretch")
+                st.plotly_chart(fig_int, use_container_width=True)
 
             with cg2:
                 dist = df_prev["grupo_muscular"].value_counts().reset_index()
@@ -694,7 +676,7 @@ with col_resultados:
                     height=280,
                     margin=dict(t=45, b=20),
                 )
-                st.plotly_chart(fig_dist, width="stretch")
+                st.plotly_chart(fig_dist, use_container_width=True)
 
         # ── Rutina final ──────────────────────────────────────────────────────
         st.subheader("Rutina Semanal Generada")

@@ -29,18 +29,18 @@ import pandas as pd
 
 random.seed(42)
 
-USUARIOS     = [f"u{i:03d}" for i in range(1, 21)]
-DIAS_SEMANA  = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"]
-GRUPOS       = ["pecho", "espalda", "piernas", "hombros", "brazos", "core"]
+USUARIOS = [f"u{i:03d}" for i in range(1, 21)]
+DIAS_SEMANA = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"]
+GRUPOS = ["pecho", "espalda", "piernas", "hombros", "brazos", "core"]
 INTENSIDADES = ["baja", "media", "alta"]
-OBJETIVOS    = ["volumen", "definicion", "resistencia"]
+OBJETIVOS = ["volumen", "definicion", "resistencia"]
 
 
 def generar_sesion(usuario_id: str, dias_consecutivos: int, objetivo: str) -> dict:
-    dia        = random.choice(DIAS_SEMANA)
-    grupo      = random.choice(GRUPOS)
+    dia = random.choice(DIAS_SEMANA)
+    grupo = random.choice(GRUPOS)
     intensidad = random.choice(INTENSIDADES)
-    duracion   = random.randint(30, 90)
+    duracion = random.randint(30, 90)
 
     # ── Fatiga post-sesión ────────────────────────────────────────────────────
     # P1: Piernas + alta -> fatiga muy alta
@@ -82,74 +82,62 @@ def generar_sesion(usuario_id: str, dias_consecutivos: int, objetivo: str) -> di
     #     La sobrecarga progresiva a alta intensidad es el estímulo óptimo para
     #     hipertrofia; el rendimiento es alto cuando no hay fatiga acumulada.
     if objetivo == "volumen" and intensidad == "alta" and dias_consecutivos < 4:
-        rendimiento = random.choices(
-            ["bajo", "normal", "alto"], weights=[5, 20, 75]
-        )[0]
+        rendimiento = random.choices(["bajo", "normal", "alto"], weights=[5, 20, 75])[0]
 
     # P6: Resistencia + media -> rendimiento alto
     #     La zona aeróbica moderada (~60-75% FCmax) permite sesiones largas y
     #     sostenidas con alto rendimiento, evitando el umbral anaeróbico.
     elif objetivo == "resistencia" and intensidad == "media":
-        rendimiento = random.choices(
-            ["bajo", "normal", "alto"], weights=[5, 30, 65]
-        )[0]
+        rendimiento = random.choices(["bajo", "normal", "alto"], weights=[5, 30, 65])[0]
 
     # P7: Definicion + media -> rendimiento alto
     #     En fase de déficit calórico, la intensidad moderada evita el catabolismo
     #     muscular excesivo y es sostenible manteniendo buen rendimiento.
     elif objetivo == "definicion" and intensidad == "media":
-        rendimiento = random.choices(
-            ["bajo", "normal", "alto"], weights=[5, 25, 70]
-        )[0]
+        rendimiento = random.choices(["bajo", "normal", "alto"], weights=[5, 25, 70])[0]
 
     # P8: Fresco (1 día consecutivo) + alta -> rendimiento alto
     #     Con reservas de fosfocretatina y glucógeno repuestas y sistema nervioso
     #     recuperado, el atleta alcanza su rendimiento pico a alta intensidad.
     #     Pesos ajustados a 95% para garantizar confianza >= 0.70 en Apriori.
     elif dias_consecutivos == 1 and intensidad == "alta":
-        rendimiento = random.choices(
-            ["bajo", "normal", "alto"], weights=[1, 4, 95]
-        )[0]
+        rendimiento = random.choices(["bajo", "normal", "alto"], weights=[1, 4, 95])[0]
 
     # P9: 4+ días consecutivos -> rendimiento bajo (fatiga acumulada)
     elif dias_consecutivos >= 4:
-        rendimiento = random.choices(
-            ["bajo", "normal", "alto"], weights=[65, 30, 5]
-        )[0]
+        rendimiento = random.choices(["bajo", "normal", "alto"], weights=[65, 30, 5])[0]
 
     # P10: Alta intensidad + fatiga post alta -> rendimiento bajo
     elif intensidad == "alta" and fatiga_post >= 7:
-        rendimiento = random.choices(
-            ["bajo", "normal", "alto"], weights=[55, 35, 10]
-        )[0]
+        rendimiento = random.choices(["bajo", "normal", "alto"], weights=[55, 35, 10])[
+            0
+        ]
 
     else:
-        rendimiento = random.choices(
-            ["bajo", "normal", "alto"], weights=[20, 50, 30]
-        )[0]
+        rendimiento = random.choices(["bajo", "normal", "alto"], weights=[20, 50, 30])[
+            0
+        ]
 
     return {
-        "usuario_id":        usuario_id,
-        "dia_semana":        dia,
-        "grupo_muscular":    grupo,
-        "intensidad":        intensidad,
-        "duracion_min":      duracion,
-        "fatiga_post":       fatiga_post,
-        "rendimiento":       rendimiento,
+        "usuario_id": usuario_id,
+        "dia_semana": dia,
+        "grupo_muscular": grupo,
+        "intensidad": intensidad,
+        "duracion_min": duracion,
+        "fatiga_post": fatiga_post,
+        "rendimiento": rendimiento,
         "dias_consecutivos": dias_consecutivos,
-        "objetivo":          objetivo,
+        "objetivo": objetivo,
     }
 
 
 def generar_dataset(n_filas: int = 500) -> pd.DataFrame:
     filas = []
     for _ in range(n_filas):
-        usuario   = random.choice(USUARIOS)
-        objetivo  = random.choice(OBJETIVOS)
+        usuario = random.choice(USUARIOS)
+        objetivo = random.choice(OBJETIVOS)
         # días consecutivos: mayoría 1-3, minoría 4-7 para activar patrones de fatiga
-        dias_cons = random.choices(
-            range(1, 8), weights=[25, 22, 18, 12, 10, 8, 5]
-        )[0]
+        dias_cons = random.choices(range(1, 8), weights=[25, 22, 18, 12, 10, 8, 5])[0]
         filas.append(generar_sesion(usuario, dias_cons, objetivo))
 
     return pd.DataFrame(filas)
@@ -168,33 +156,53 @@ if __name__ == "__main__":
 
     print("\n-- Verificacion de patrones --")
     checks = [
-        ("P1  piernas+alta  -> fatiga_post >=7",
-         (df.grupo_muscular=="piernas") & (df.intensidad=="alta"),
-         lambda s: s["fatiga_post"].mean()),
-        ("P2  espalda+alta  -> fatiga_post >=6",
-         (df.grupo_muscular=="espalda") & (df.intensidad=="alta"),
-         lambda s: s["fatiga_post"].mean()),
-        ("P3  brazos/core+baja -> fatiga_post <=3",
-         (df.grupo_muscular.isin(["brazos","core"])) & (df.intensidad=="baja"),
-         lambda s: s["fatiga_post"].mean()),
-        ("P4  4+dias -> fatiga_post >=6",
-         df.dias_consecutivos >= 4,
-         lambda s: s["fatiga_post"].mean()),
-        ("P5  volumen+alta -> rendimiento alto %",
-         (df.objetivo=="volumen") & (df.intensidad=="alta") & (df.dias_consecutivos < 4),
-         lambda s: (s["rendimiento"]=="alto").mean() * 100),
-        ("P6  resistencia+media -> rendimiento alto %",
-         (df.objetivo=="resistencia") & (df.intensidad=="media"),
-         lambda s: (s["rendimiento"]=="alto").mean() * 100),
-        ("P7  definicion+media -> rendimiento alto %",
-         (df.objetivo=="definicion") & (df.intensidad=="media"),
-         lambda s: (s["rendimiento"]=="alto").mean() * 100),
-        ("P8  dias_cons=1+alta -> rendimiento alto %",
-         (df.dias_consecutivos==1) & (df.intensidad=="alta"),
-         lambda s: (s["rendimiento"]=="alto").mean() * 100),
-        ("P9  4+dias -> rendimiento bajo %",
-         df.dias_consecutivos >= 4,
-         lambda s: (s["rendimiento"]=="bajo").mean() * 100),
+        (
+            "P1  piernas+alta  -> fatiga_post >=7",
+            (df.grupo_muscular == "piernas") & (df.intensidad == "alta"),
+            lambda s: s["fatiga_post"].mean(),
+        ),
+        (
+            "P2  espalda+alta  -> fatiga_post >=6",
+            (df.grupo_muscular == "espalda") & (df.intensidad == "alta"),
+            lambda s: s["fatiga_post"].mean(),
+        ),
+        (
+            "P3  brazos/core+baja -> fatiga_post <=3",
+            (df.grupo_muscular.isin(["brazos", "core"])) & (df.intensidad == "baja"),
+            lambda s: s["fatiga_post"].mean(),
+        ),
+        (
+            "P4  4+dias -> fatiga_post >=6",
+            df.dias_consecutivos >= 4,
+            lambda s: s["fatiga_post"].mean(),
+        ),
+        (
+            "P5  volumen+alta -> rendimiento alto %",
+            (df.objetivo == "volumen")
+            & (df.intensidad == "alta")
+            & (df.dias_consecutivos < 4),
+            lambda s: (s["rendimiento"] == "alto").mean() * 100,
+        ),
+        (
+            "P6  resistencia+media -> rendimiento alto %",
+            (df.objetivo == "resistencia") & (df.intensidad == "media"),
+            lambda s: (s["rendimiento"] == "alto").mean() * 100,
+        ),
+        (
+            "P7  definicion+media -> rendimiento alto %",
+            (df.objetivo == "definicion") & (df.intensidad == "media"),
+            lambda s: (s["rendimiento"] == "alto").mean() * 100,
+        ),
+        (
+            "P8  dias_cons=1+alta -> rendimiento alto %",
+            (df.dias_consecutivos == 1) & (df.intensidad == "alta"),
+            lambda s: (s["rendimiento"] == "alto").mean() * 100,
+        ),
+        (
+            "P9  4+dias -> rendimiento bajo %",
+            df.dias_consecutivos >= 4,
+            lambda s: (s["rendimiento"] == "bajo").mean() * 100,
+        ),
     ]
     for desc, mask, fn in checks:
         subset = df[mask]

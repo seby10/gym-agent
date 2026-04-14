@@ -115,14 +115,11 @@ def reglas_aplicables(reglas: pd.DataFrame, contexto: dict) -> list[dict]:
     # Solo las reglas con antecedentes formados exclusivamente por estos
     # prefijos son relevantes: las que incluyen fatiga_post o rendimiento
     # en el antecedente nunca podrán ser activadas por inputs del usuario.
-    _PREFIJOS_CONTEXTO = (
-        "grupo_", "intensidad_", "objetivo_", "dias_consecutivos_"
-    )
+    _PREFIJOS_CONTEXTO = ("grupo_", "intensidad_", "objetivo_", "dias_consecutivos_")
 
     def _es_antecedente_contextual(antecedente: set) -> bool:
         return all(
-            any(item.startswith(p) for p in _PREFIJOS_CONTEXTO)
-            for item in antecedente
+            any(item.startswith(p) for p in _PREFIJOS_CONTEXTO) for item in antecedente
         )
 
     def _construir_entrada(antecedente: set, row) -> dict:

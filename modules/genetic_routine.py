@@ -37,6 +37,11 @@ PERFIL_OBJETIVO = {
     },
 }
 
+# Parámetros del algoritmo genético
+POBLACION_SIZE = 100
+PROB_CROSSOVER = 0.8
+PROB_MUTACION = 0.2  # probabilidad por individuo de ser mutado
+
 # Señales de sobreentrenamiento en los consecuentes de reglas Apriori
 CONSECUENTES_SOBREENTRENAMIENTO = {
     "fatiga_post_alta",
@@ -225,7 +230,7 @@ def evolucionar_rutina(
     tb.register("mutate", _mutar, indpb=0.2)
 
     # Crear población inicial
-    poblacion = tb.population(n=100)
+    poblacion = tb.population(n=POBLACION_SIZE)
 
     historial_fitness = []
     # Guarda el mejor individuo encontrado en toda la evolución, sin importar en qué generación apareció. El 1 significa que guarda solo el mejor.
@@ -250,14 +255,14 @@ def evolucionar_rutina(
 
         # Crossover
         for hijo1, hijo2 in zip(descendientes[::2], descendientes[1::2]):
-            if random.random() < 0.8:
+            if random.random() < PROB_CROSSOVER:
                 tb.mate(hijo1, hijo2)
                 del hijo1.fitness.values
                 del hijo2.fitness.values
 
         # Mutación
         for mutante in descendientes:
-            if random.random() < 0.2:
+            if random.random() < PROB_MUTACION:
                 tb.mutate(mutante)
                 del mutante.fitness.values
 

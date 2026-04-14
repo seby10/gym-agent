@@ -10,6 +10,25 @@ from modules.fuzzy_state import evaluar_estado
 from modules.genetic_routine import evolucionar_rutina
 
 
+def _intensidad_label(fatiga: float, energia: float) -> str:
+    """Aproxima la etiqueta de intensidad actual a partir de fatiga y energía."""
+    score = energia - fatiga
+    if score >= 4:
+        return "alta"
+    elif score >= 0:
+        return "media"
+    return "baja"
+
+
+def _dias_consecutivos(descanso: float) -> int:
+    """Estima días consecutivos de entrenamiento a partir de días de descanso."""
+    if descanso == 0:
+        return 5  # sin descanso → riesgo de racha larga
+    elif descanso == 1:
+        return 3  # descanso reciente → racha moderada
+    return 1  # 2+ días de descanso → sin racha activa
+
+
 class GymAgent:
     """
     Agente inteligente de entrenamiento. Orquesta los 3 módulos de IA
@@ -43,20 +62,20 @@ class GymAgent:
             "recomendacion_final": str
         }
         """
-        nombre   = perfil_usuario.get("nombre", "Usuario")
+        nombre = perfil_usuario.get("nombre", "Usuario")
         objetivo = perfil_usuario.get("objetivo", "resistencia")
-        nivel    = perfil_usuario.get("nivel", "principiante")
-        fatiga   = float(perfil_usuario.get("fatiga_actual", 5))
-        energia  = float(perfil_usuario.get("energia_actual", 5))
+        nivel = perfil_usuario.get("nivel", "principiante")
+        fatiga = float(perfil_usuario.get("fatiga_actual", 5))
+        energia = float(perfil_usuario.get("energia_actual", 5))
         descanso = float(perfil_usuario.get("dias_descanso", 1))
-        grupo    = perfil_usuario.get("grupo_planificado", "core")
+        grupo = perfil_usuario.get("grupo_planificado", "core")
 
         # ── Paso 1: Reglas de Asociación ──────────────────────────────────────
         contexto_apriori = {
-            "grupo_muscular":    grupo,
-            "intensidad":        self._intensidad_label(fatiga, energia),
-            "objetivo":          objetivo,
-            "dias_consecutivos": self._dias_consecutivos(descanso),
+            "grupo_muscular": grupo,
+            "intensidad": _intensidad_label(fatiga, energia),
+            "objetivo": objetivo,
+            "dias_consecutivos": _dias_consecutivos(descanso),
         }
         reglas_activas = reglas_aplicables(self.reglas, contexto_apriori)
 
@@ -78,54 +97,40 @@ class GymAgent:
         )
 
         return {
-            "paso1_reglas":        reglas_activas,
-            "paso2_estado":        estado_difuso,
-            "paso3_rutina":        resultado_ag,
+            "paso1_reglas": reglas_activas,
+            "paso2_estado": estado_difuso,
+            "paso3_rutina": resultado_ag,
             "recomendacion_final": recomendacion,
         }
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
-    def _dias_consecutivos(self, descanso: float) -> int:
-        """
-        Estima días consecutivos de entrenamiento a partir de días de descanso.
-        Más descanso = menos días consecutivos activos.
-        """
-        if descanso == 0:
-            return 5   # sin descanso → riesgo de racha larga
-        elif descanso == 1:
-            return 3   # descanso reciente → racha moderada
-        else:
-            return 1   # 2+ días de descanso → sin racha activa
-
-    def _intensidad_label(self, fatiga: float, energia: float) -> str:
-        """Aproxima la etiqueta de intensidad actual a partir de fatiga y energía."""
-        score = energia - fatiga
-        if score >= 4:
-            return "alta"
-        elif score >= 0:
-            return "media"
-        return "baja"
-
-    def _generar_recomendacion(self, nombre: str, nivel: str, objetivo: str,
-                                estado: dict, reglas: list, rutina: dict) -> str:
+    def _generar_recomendacion(
+        self,
+        nombre: str,
+        nivel: str,
+        objetivo: str,
+        estado: dict,
+        reglas: list,
+        rutina: dict,
+    ) -> str:
         """Construye el texto de recomendación final del agente."""
         nivel_difuso = estado["nivel"]
-        intensidad   = estado["intensidad_recomendada"]
-        fitness      = rutina["fitness_final"]
+        intensidad = estado["intensidad_recomendada"]
+        fitness = rutina["fitness_final"]
 
         # Apertura personalizada por nivel
         apertura = {
             "principiante": f"{nombre}, como principiante es clave no excederte.",
-            "intermedio":   f"{nombre}, tu nivel intermedio te permite una carga equilibrada.",
-            "avanzado":     f"{nombre}, tu nivel avanzado soporta rutinas exigentes.",
+            "intermedio": f"{nombre}, tu nivel intermedio te permite una carga equilibrada.",
+            "avanzado": f"{nombre}, tu nivel avanzado soporta rutinas exigentes.",
         }.get(nivel, f"Hola {nombre}.")
 
         # Estado físico
         estado_texto = {
             "recuperacion": "Tu estado físico actual requiere recuperacion activa — prioriza descanso y movilidad.",
-            "moderada":     "Tu estado físico es moderado — entrena con intensidad controlada.",
-            "alta":         "Tu estado físico es óptimo — puedes exigirte al máximo hoy.",
+            "moderada": "Tu estado físico es moderado — entrena con intensidad controlada.",
+            "alta": "Tu estado físico es óptimo — puedes exigirte al máximo hoy.",
         }[nivel_difuso]
 
         # Alertas de reglas
@@ -136,8 +141,8 @@ class GymAgent:
 
         # Objetivo
         obj_texto = {
-            "volumen":     "La rutina prioriza series altas y cargas pesadas para hipertrofia.",
-            "definicion":  "La rutina combina variedad muscular con intensidad moderada-alta.",
+            "volumen": "La rutina prioriza series altas y cargas pesadas para hipertrofia.",
+            "definicion": "La rutina combina variedad muscular con intensidad moderada-alta.",
             "resistencia": "La rutina busca el acondicionamiento general con series cortas y variedad.",
         }.get(objetivo, "")
 
