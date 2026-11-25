@@ -6,6 +6,12 @@ Sistema de IA que genera rutinas de entrenamiento semanales personalizadas encad
 
 ---
 
+## Captura
+
+![Interfaz del agente: perfil del usuario, regla de asociación activa e intensidad recomendada por la lógica difusa](docs/captura.png)
+
+Cada paso del razonamiento se muestra en la interfaz: las reglas que activó el historial, el estado físico que estimó la lógica difusa y la rutina que generó el algoritmo genético.
+
 ## Instalación
 
 ```bash
